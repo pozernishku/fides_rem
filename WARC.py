@@ -125,7 +125,7 @@ def clean_text(text):
 '''
 wet_list also accepts compressed files *.warc.wet.gz
 '''
-def tokenize_wet_files(wet_list=None):
+def clean_and_tokenize_wet_files(wet_list=None):
     if not wet_list:
         print('wet_list is not specified')
         return 
@@ -162,7 +162,7 @@ def tokenize_wet_files(wet_list=None):
 
 #%%
 if __name__ == '__main__':
-    tokenize_wet_files(glob.glob("../*.warc.wet*"))
+    clean_and_tokenize_wet_files(glob.glob("../*.warc.wet*"))
 
 
 #%%
