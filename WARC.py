@@ -2,7 +2,7 @@
 #%%
 import glob
 import warcat.model
-from nltk.tokenize import word_tokenize
+# from nltk.tokenize import word_tokenize
 import os
 import re
 regex_html_char_num = re.compile(r"&#?[0-9a-zA-Z]*;", re.MULTILINE)
