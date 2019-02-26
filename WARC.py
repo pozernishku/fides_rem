@@ -136,7 +136,7 @@ def tokenize_wet_files(wet_list=None):
         warc = warcat.model.WARC()
         warc.load(wet_file)
         
-        pth = os.path.join('./output', wet_file)
+        pth = os.path.join('./output', wet_file[3:])
         os.makedirs(pth, exist_ok=True)
         print('File: ', wet_file, 'Records: ', len(warc.records), sep='\t', end='\n\n') # to logs is better
         
