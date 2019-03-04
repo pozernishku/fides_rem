@@ -13,7 +13,7 @@ html_amp_dash_dict = {'&amp;':'&','&ndash;':'–','&mdash;':'—','&horbar;':'�
 
 regex_non_relevant_symb = re.compile(r"(?<=(\w))[^\s\w]+(?=(\w))", re.MULTILINE)
 regex_remaining_non_relevant_symb = re.compile(r"[^\s\w]+", re.MULTILINE)
-regex_alone_digits = re.compile(r"((^\d+(?=\s))|((?<=\s)[\d]+(?=\s))|((?<=\s)\d+$))", re.MULTILINE)
+regex_alone_digits = re.compile(r"(?<=\s)[\d]+(?=\s)", re.MULTILINE)
 regex_dot_capital = re.compile(r"[.](\w)", re.MULTILINE)
 regex_white_space = re.compile(r"\s+", re.MULTILINE)
 dashes_set = {'–','—','―','−','‐','─','⁃','-'}
@@ -26,12 +26,11 @@ digits_set = {'0','1','2','3','4','5','6','7','8','9'}
 #%%
 '''
 пожалуй, еще нужно добавить фильтр на длину слова. Скажем, слова, более 30 символов - не обрабатывать.
+- точки между буквами не обрабатываются за искл. сочетание "точка+одиночная заглавная буква" разделяются пробелом;
 '''
 def remove_long_words(text, word_length=30):
     if text is None:
         return ''
-    elif len(text) <= word_length:
-        return text
     
     a = 0
     s = ''
@@ -39,9 +38,12 @@ def remove_long_words(text, word_length=30):
     for i, c in enumerate(text):
         if c == ' ':
             if i - a <= word_length:
-                s += text[a:i+1]
+                s += final_cuts(text[a:i+1])
                 a = i+1
             else:
+                z = final_cuts(text[a:i+1]).strip()
+                if len(z) <= word_length:
+                    s += z + ' '
                 a = i+1
     else:
         if c == ' ':
@@ -50,9 +52,54 @@ def remove_long_words(text, word_length=30):
         i += 1
         
         if i - a <= word_length:
-            s += text[a:i+1]
+            s += final_cuts(text[a:i+1])
+        else:
+            z = final_cuts(text[a:i+1]).strip()
+            if len(z) <= word_length:
+                s += z
 
     return s
+
+
+#%%
+'''
+- отдельно стоящие небуквенные и нецифровые последовательности удалять; это касается и тире, апострофа и амперсанда:
+Ano Novo – & Australia Day – Good Friday – Easter Saturday - Easter Monday
+g = 'страница от 10.01.2018. Оригинал '
+'''
+def final_cuts(word):
+    n = len(word)
+    
+    if n == 0:
+        return word
+    elif n == 1:
+        if (word in dashes_set or word == period or word == ampersand 
+            or word in apostrophe_set or word == ' ' or word in digits_set):
+            return ' '
+        else:
+            return word
+    elif n >= 2:
+        front = word[0]
+        tail = word[-1]
+        pre_tail = word[-2:-1]
+        pre_check_digit = word[-3:-2]
+        
+        if (front in dashes_set or front == period or front == ampersand 
+            or front in apostrophe_set):
+            word = ' ' + word[1:]
+        
+        if (tail in dashes_set or tail == period or tail == ampersand 
+            or tail in apostrophe_set):
+            word = word[:-1] + ' '
+            
+        if ((pre_tail in dashes_set or pre_tail == period or pre_tail == ampersand 
+            or pre_tail in apostrophe_set) and tail == ' '):
+            word = word[:-2] + ' ' + word[-1:]
+            
+        if (pre_check_digit in digits_set or pre_tail in digits_set or tail in digits_set or front in digits_set):
+            word = clean_alone_digits(' ' + word + ' ')
+    
+    return word
 
 
 #%%
@@ -93,7 +140,8 @@ def non_relevant_repl_func(match):
         if match.group(1).isalpha() and match.group(2).isalpha():
             return ' '
         elif ((match.group(1).isalpha() and match.group(2) in digits_set) 
-             or (match.group(2).isalpha() and match.group(1) in digits_set)):
+             or (match.group(2).isalpha() and match.group(1) in digits_set)
+             or (match.group(1) in digits_set and match.group(2) in digits_set)):
             return ' '
         else:
             return match.group(0)
@@ -150,23 +198,27 @@ def separate_dot_capital(text):
 
 #%%
 '''
-name: DUC. Enjoy - все точки также удаляются, после обаботки: сочетание "точка+одиночная заглавная буква" разделяются пробелом;
-(тут удаляются все точки)
+name: DUC. Enjoy - все точки также удаляются, после обаботки: сочетание "точка+одиночная заглавная буква" разделяются пробелом; 
+удалено условие: тут удаляются все точки [^\s\w]+
 '''
 def remaining_non_relevant_repl_func(match):
     if len(match.group(0)) > 1:
         return ' '
     elif (match.group(0) == ampersand 
           or match.group(0) in dashes_set 
-#           or match.group(0) == period 
+          or match.group(0) == period 
           or match.group(0) in apostrophe_set):
+        
+        if match.start() == 0 or match.start() == match.endpos-1:
+            return ' '
+        
         return match.group(0)
     else:
         return ' '
 
 
 #%%
-# НЕ из перечисленных: амперсанд (&), тире(все виды), апостраф(все виды)
+# НЕ из перечисленных: амперсанд (&), тире(все виды), точка (.), апостраф(все виды)
 '''
 идея же в том, чтобы избавиться от небуквенных последовательностей, а также "помочь" токенизации при построении частотного распределения. 
 
@@ -188,7 +240,8 @@ def clean_remaining_non_relevant_symb(text):
 Clean text according to http://redmine-ots.co.spb.ru/issues/7415
 '''
 def clean_text(text):
-    return remove_long_words(regex_white_space.sub(' ', 
+    return remove_long_words(
+                                regex_white_space.sub(' ', 
                                      clean_alone_digits(
                                         clean_remaining_non_relevant_symb(
                                             separate_dot_capital(
@@ -214,12 +267,13 @@ def clean_and_tokenize_wet_files(wet_list=None):
         
         pth = os.path.join('./output', wet_file[3:])
 #         lg = os.path.join('./logs', wet_file[3:]) # logging - continue
+
         os.makedirs(pth, exist_ok=True)
 #         os.makedirs(lg, exist_ok=True)
         
         print('File: ', wet_file, 'Records: ', len(warc.records), sep='\t', end='\n\n') # to logs is better
         
-        for i, record in enumerate(warc.records[0:1000]): # sliced here!
+        for i, record in enumerate(warc.records[0:2000]): # sliced here!
             print('WARC-Type: ', record.warc_type, 'Content-Length: ', record.content_length, 
                   'Content-Type: ', record.header.fields['content-type'], 
                   'WARC-Target-URI: ' , record.header.fields.get('WARC-Target-URI'), 
@@ -241,6 +295,10 @@ def clean_and_tokenize_wet_files(wet_list=None):
 #%%
 if __name__ == '__main__':
     clean_and_tokenize_wet_files(glob.glob("../*.warc.wet*"))
+
+
+#%%
+
 
 
 #%%
