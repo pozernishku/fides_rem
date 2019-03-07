@@ -16,6 +16,11 @@ regex_remaining_non_relevant_symb = re.compile(r"[^\s\w]+", re.MULTILINE)
 regex_alone_digits = re.compile(r"(?<=\s)[\d]+(?=\s)", re.MULTILINE)
 regex_dot_capital = re.compile(r"[.](\w)", re.MULTILINE)
 regex_white_space = re.compile(r"\s+", re.MULTILINE)
+
+regex_email = re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.MULTILINE | re.IGNORECASE)
+regex_hashtag = re.compile(r"(?<!&)#\w+\b(?!;)")
+regex_www = re.compile(r"\b(?:https?://|www\.)+\S{3,}", re.MULTILINE | re.IGNORECASE)
+
 dashes_set = {'–','—','―','−','‐','─','⁃','-'}
 period = '.'
 ampersand = '&'
@@ -237,6 +242,38 @@ def clean_remaining_non_relevant_symb(text):
 
 #%%
 '''
+кстати, выделенные url, e-mail, hash-tag могут также пригодиться для оценки, 
+поэтому есть смысл их не просто удалять, а и по ним строить частотное распределение 
+(например, их кол-во и распределение могут показывать "связность" ресурса).
+'''
+def clean_from_emails(text):
+    match = regex_email.search(text)
+    if match:
+        return regex_email.sub(' ', text)
+    else:
+        return text
+
+
+#%%
+def clean_from_www(text):
+    match = regex_www.search(text)
+    if match:
+        return regex_www.sub(' ', text)
+    else:
+        return text
+
+
+#%%
+def clean_from_hashtag(text):
+    match = regex_hashtag.search(text)
+    if match:
+        return regex_hashtag.sub(' ', text)
+    else:
+        return text
+
+
+#%%
+'''
 Clean text according to http://redmine-ots.co.spb.ru/issues/7415
 '''
 def clean_text(text):
@@ -246,7 +283,10 @@ def clean_text(text):
                                         clean_remaining_non_relevant_symb(
                                             separate_dot_capital(
                                                 clean_non_relevant_symb(
-                                                    clean_html_char_num(text)))))))
+                                                    clean_from_hashtag(
+                                                        clean_from_www(
+                                                            clean_html_char_num(
+                                                                clean_from_emails(text))))))))))
 
 
 #%%
@@ -285,20 +325,21 @@ def clean_and_tokenize_wet_files(wet_list=None):
                     text = bytes.decode(f.read())
                     file_name_urn = record.header.fields.get('WARC-Record-ID').split(':')[-1][:-1] + '.txt'
                     
+                    # а и по ним строить частотное распределение
+                    emails = ' '.join(regex_email.findall(text))
+                    sites = ' '.join(regex_www.findall(text))
+                    hash_tags = ' '.join(regex_hashtag.findall(text))
+                    
                     with open(os.path.join(pth, file_name_urn), 'w') as f_to_fs:
-                        f_to_fs.write(clean_text(text))
+                        f_to_fs.write(clean_text(text) + '  ' +emails+'  '+sites+'  '+hash_tags)
                         
 #                     print('\nDirty: \n\n', text, end='\n\n')
-#                     print('\nClean: \n\n', clean_text(text), end='\n\n')
+#                     print('\nClean: \n\n', clean_text(text) + '  '+emails+'  '+sites+'  '+hash_tags, end='\n\n')
 
 
 #%%
 if __name__ == '__main__':
     clean_and_tokenize_wet_files(glob.glob("../*.warc.wet*"))
-
-
-#%%
-
 
 
 #%%
