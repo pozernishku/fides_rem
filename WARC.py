@@ -1,9 +1,13 @@
 
 #%%
 import glob
+import csv
 import warcat.model
+import argparse
 import os
 import re
+from operator import itemgetter, attrgetter
+
 regex_html_char_num = re.compile(r"&#?[0-9a-zA-Z]*;", re.MULTILINE)
 html_amp_dash_dict = {'&amp;':'&','&ndash;':'–','&mdash;':'—','&horbar;':'―','&minus;':'−',
                      '&hyphen;':'‐','&dash;':'‐','&HorizontalLine;':'─','&hybull;':'⁃',
@@ -273,6 +277,34 @@ def clean_from_hashtag(text):
 
 
 #%%
+def strip_port(res_url):
+    res_len = len(res_url)
+    for d in range(1, 7 if res_len > 5 else res_len+1):
+        if res_url[-d] == ':':
+            return res_url[:-d]
+    else:
+        return res_url
+
+
+#%%
+# h or w
+# if h then stop on third / or on the end of the string (if no more /) https://test.com   www.test.com/
+# if w then stop on first / or on the end of the string (if no more /)
+def strip_urls(url):
+    cnt = 0
+    if len(url) == 0: return url
+    first = url[0]
+    
+    for i, c in enumerate(url):
+        if c == '/':
+            cnt += 1
+            if (first == 'h' and cnt == 3) or (first == 'w' and cnt == 1):
+                return strip_port(url[:i])
+    else:
+        return strip_port(url)
+
+
+#%%
 '''
 Clean text according to http://redmine-ots.co.spb.ru/issues/7415
 '''
@@ -291,9 +323,34 @@ def clean_text(text):
 
 #%%
 '''
-wet_list also accepts compressed files *.warc.wet.gz
+Сокращение хвостов происходит по проценту от общей суммы слов (90-95%), это значит: 
+суммируются частоты всех слов (=100%), список слов ранжируется, например, по убыванию, 
+и 5-10% «хвост» низкочастотного распределения отрезается (это почти 100% шум: ошибки, описки, прочий хлам). 
+При этом общий объем частотного словаря уменьшится более, чем в два раза.
 '''
-def clean_and_tokenize_wet_files(wet_list=None):
+def fr_dist_with_domain(text, ref, slice_percent):
+    words_list = text.lower().split()
+    domain = strip_urls(ref).lower()
+    
+    di = dict()
+    
+    for w in words_list:
+        di[w] = di.get(w, 0) + 1
+        
+    items = sorted(di.items(), key=itemgetter(1), reverse=True) 
+    
+    cnt = len(items)
+    cnt_perc = cnt * slice_percent // 100
+    
+    return [item + (domain,) for item in items[:cnt-cnt_perc]] # with sliced tail by slice_percent count
+
+
+#%%
+'''
+wet_list also accepts compressed files *.warc.wet.gz
+Процент обрезания задавать параметрически, чтобы постом можно было подобрать оптимальный.
+'''
+def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=10):
     if not wet_list:
         print('wet_list is not specified')
         return 
@@ -313,33 +370,49 @@ def clean_and_tokenize_wet_files(wet_list=None):
         
         print('File: ', wet_file, 'Records: ', len(warc.records), sep='\t', end='\n\n') # to logs is better
         
-        for i, record in enumerate(warc.records[0:2000]): # sliced here!
-            print('WARC-Type: ', record.warc_type, 'Content-Length: ', record.content_length, 
-                  'Content-Type: ', record.header.fields['content-type'], 
-                  'WARC-Target-URI: ' , record.header.fields.get('WARC-Target-URI'), 
-                  'WARC-Date: ' , record.header.fields.get('WARC-Date'), 
-                  'Num: ', i, sep='\t') 
+        wet_fr_dist = []
+        
+        for i, record in enumerate(warc.records[0:100]): # sliced here!
+            file_uri = record.header.fields.get('WARC-Target-URI')
+            print(record.header.fields.list(), 'Num: ', i, sep='\t', end='\n\n')
             
             if record.warc_type != 'warcinfo':
                 with record.content_block.get_file() as f:
                     text = bytes.decode(f.read())
-                    file_name_urn = record.header.fields.get('WARC-Record-ID').split(':')[-1][:-1] + '.txt'
+#                     file_name_urn = record.header.fields.get('WARC-Record-ID').split(':')[-1][:-1] + '.txt'
                     
                     # а и по ним строить частотное распределение
                     emails = ' '.join(regex_email.findall(text))
-                    sites = ' '.join(regex_www.findall(text))
+                    sites = ' '.join(map(strip_urls, regex_www.findall(text)))
                     hash_tags = ' '.join(regex_hashtag.findall(text))
                     
-                    with open(os.path.join(pth, file_name_urn), 'w') as f_to_fs:
-                        f_to_fs.write(clean_text(text) + '  ' +emails+'  '+sites+'  '+hash_tags)
+                    cleaned_text = clean_text(text) + '  ' + emails + '  ' + sites + '  ' + hash_tags
+                    fr_dist = fr_dist_with_domain(cleaned_text, file_uri, slice_percent)
+                    wet_fr_dist += fr_dist
+                    
+#                     with open(os.path.join(pth, file_name_urn), 'w') as f_to_fs:
+#                         f_to_fs.write(cleaned_text)
                         
 #                     print('\nDirty: \n\n', text, end='\n\n')
-#                     print('\nClean: \n\n', clean_text(text) + '  '+emails+'  '+sites+'  '+hash_tags, end='\n\n')
+#                     print('\nFrDist: \n\n', fr_dist, '\n', end='\n\n')
+#                     print('\nCleaned text: \n\n', cleaned_text, end='\n\n')
+                    
+        else: # WET file end loop -- save to csv
+            file_name_wet_csv = wet_file[3:] + '.csv'
+            with open(os.path.join(pth, file_name_wet_csv), 'w', newline='') as csv_f:
+                writer = csv.writer(csv_f, delimiter='\t')
+                writer.writerows(wet_fr_dist)
 
 
 #%%
 if __name__ == '__main__':
-    clean_and_tokenize_wet_files(glob.glob("../*.warc.wet*"))
+    parser = argparse.ArgumentParser()
+    parser.add_argument('slice_percent', 
+                        help='Slice percent. Used to cut off the trash tail of the frequency distribution.',
+                        type=int)
+    args = parser.parse_args()
+    
+    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), args.slice_percent)
 
 
 #%%
