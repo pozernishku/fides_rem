@@ -327,22 +327,30 @@ def clean_text(text):
 суммируются частоты всех слов (=100%), список слов ранжируется, например, по убыванию, 
 и 5-10% «хвост» низкочастотного распределения отрезается (это почти 100% шум: ошибки, описки, прочий хлам). 
 При этом общий объем частотного словаря уменьшится более, чем в два раза.
+
+Пример:
+3000 (100%)- общая сумма слов
+1500 уникальных слов (строк) в частотном словаре
+300    (10%)  - число по проценту от общей суммы слов
+обрезается 300 последних строк с самой низкой частотой 1500 - 300 = 1200 строк 
 '''
 def fr_dist_with_domain(text, ref, slice_percent):
     words_list = text.lower().split()
     domain = strip_urls(ref).lower()
-    
+        
     di = dict()
     
     for w in words_list:
         di[w] = di.get(w, 0) + 1
-        
-    items = sorted(di.items(), key=itemgetter(1), reverse=True) 
     
-    cnt = len(items)
-    cnt_perc = cnt * slice_percent // 100
+    items = sorted(di.items(), key=itemgetter(1), reverse=True)
+            
+    cnt_all = len(words_list)
+    cnt_dist = len(items)
     
-    return [item + (domain,) for item in items[:cnt-cnt_perc]] # with sliced tail by slice_percent count
+    cnt_perc = cnt_all * slice_percent // 100
+    
+    return [item + (domain,) for item in items[:cnt_dist-cnt_perc]] # sliced tail by slice_percent 1500-300=1200  
 
 
 #%%
@@ -355,8 +363,8 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=10):
         print('wet_list is not specified')
         return 
     
-    wet_list = wet_list[-1:] # one (last 00639) in list (require all list)
-#     wet_list = wet_list[0:1]
+#     wet_list = wet_list[-1:] # one (last 00639) in list (require all list)
+    wet_list = wet_list[0:1]
     
     for wet_file in wet_list:
         warc = warcat.model.WARC()
@@ -410,9 +418,13 @@ if __name__ == '__main__':
     parser.add_argument('slice_percent', 
                         help='Slice percent. Used to cut off the trash tail of the frequency distribution.',
                         type=int)
-    args = parser.parse_args()
     
-    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), args.slice_percent)
+    prc = 0
+    
+    args = parser.parse_args()
+    prc = args.slice_percent
+    
+    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), prc)
 
 
 #%%
