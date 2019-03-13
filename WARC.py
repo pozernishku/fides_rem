@@ -355,8 +355,8 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=10):
         print('wet_list is not specified')
         return 
     
-#     wet_list = wet_list[-1:] # one (last 00639) in list (require all list)
-    wet_list = wet_list[0:1]
+    wet_list = wet_list[-1:] # one (last 00639) in list (require all list)
+#     wet_list = wet_list[0:1]
     
     for wet_file in wet_list:
         warc = warcat.model.WARC()
@@ -372,7 +372,7 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=10):
         
         wet_fr_dist = []
         
-        for i, record in enumerate(warc.records[0:100]): # sliced here!
+        for i, record in enumerate(warc.records[0:]): # sliced here!
             file_uri = record.header.fields.get('WARC-Target-URI')
             print(record.header.fields.list(), 'Num: ', i, sep='\t', end='\n\n')
             
