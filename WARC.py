@@ -363,8 +363,8 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=10):
         print('wet_list is not specified')
         return 
     
-#     wet_list = wet_list[-1:] # one (last 00639) in list (require all list)
-    wet_list = wet_list[0:1]
+    wet_list = wet_list[-1:] # one (last 00639) in list (require all list)
+    # wet_list = wet_list[0:1]
     
     for wet_file in wet_list:
         warc = warcat.model.WARC()
