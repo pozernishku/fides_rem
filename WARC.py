@@ -335,7 +335,7 @@ def clean_text(text):
 и еще один нюанс: часто порог попадает на группу слов с одинаковой частотой, особенно, если объем текста большой,
 так вот, хорошо бы либо всю эту группу либо отбрасывать, либо включать;
 '''
-def fr_dist_with_domain(text, ref, slice_percent=95, short_tail=1):
+def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1):
     words_list = text.lower().split()
     domain = strip_urls(ref).lower()
         
@@ -387,13 +387,13 @@ def fr_dist_with_domain(text, ref, slice_percent=95, short_tail=1):
 wet_list also accepts compressed files *.warc.wet.gz
 Процент обрезания задавать параметрически, чтобы постом можно было подобрать оптимальный.
 '''
-def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=95, short_tail=1):
+def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=90, short_tail=1):
     if not wet_list:
         print('wet_list is not specified')
         return
     
 #     wet_list = wet_list[-1:] # one (last 00639) in list (require all list)
-    wet_list = wet_list[0:2]
+    wet_list = wet_list[2:20]
     
     for wet_file in wet_list:
         warc = warcat.model.WARC()
@@ -434,7 +434,7 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=95, short_tail=
 
 #%%
 # if __name__ == '__main__':
-#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 95, 1)
+#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 90, 1)
 
 
 #%%
