@@ -4,6 +4,7 @@ import glob
 import csv
 import warcat.model
 import argparse
+import logging
 import os
 import re
 from operator import itemgetter, attrgetter
@@ -299,9 +300,9 @@ def strip_urls(url):
         if c == '/':
             cnt += 1
             if (first == 'h' and cnt == 3) or (first == 'w' and cnt == 1):
-                return strip_port(url[:i])
+                return strip_port(url[:i]).strip('\\')
     else:
-        return strip_port(url)
+        return strip_port(url).strip('\\')
 
 
 #%%
@@ -328,13 +329,13 @@ def clean_text(text):
 и 5-10% «хвост» низкочастотного распределения отрезается (это почти 100% шум: ошибки, описки, прочий хлам). 
 При этом общий объем частотного словаря уменьшится более, чем в два раза.
 
-Пример:
-3000 (100%)- общая сумма слов
-1500 уникальных слов (строк) в частотном словаре
-300    (10%)  - число по проценту от общей суммы слов
-обрезается 300 последних строк с самой низкой частотой 1500 - 300 = 1200 строк 
+т.е. идея учитывать "плотность" распределения, а не просто обрезать по кол-ву.
+тогда мы вынем нужные слова, а мусор выкинем.
+
+и еще один нюанс: часто порог попадает на группу слов с одинаковой частотой, особенно, если объем текста большой,
+так вот, хорошо бы либо всю эту группу либо отбрасывать, либо включать;
 '''
-def fr_dist_with_domain(text, ref, slice_percent):
+def fr_dist_with_domain(text, ref, slice_percent=95, short_tail=1):
     words_list = text.lower().split()
     domain = strip_urls(ref).lower()
         
@@ -344,13 +345,41 @@ def fr_dist_with_domain(text, ref, slice_percent):
         di[w] = di.get(w, 0) + 1
     
     items = sorted(di.items(), key=itemgetter(1), reverse=True)
+    result_items = []
             
     cnt_all = len(words_list)
     cnt_dist = len(items)
     
-    cnt_perc = cnt_all * slice_percent // 100
+    if cnt_all == 0:
+        return [(' ', 0, domain),]
+    elif cnt_all == 1:
+        return [(words_list[0], 1, domain),]
     
-    return [item + (domain,) for item in items[:cnt_dist-cnt_perc]] # sliced tail by slice_percent 1500-300=1200  
+    if cnt_dist == 1:
+        return [(items[0] + (domain,)),]
+    
+    cur_prc = 0
+    
+    for i in range(cnt_dist):
+        cur_prc += 100 / (cnt_all/items[i][1])
+        prev_cnt = 0 if i == 0 else items[i-1][1]
+#         print(items[i][0], items[i][1], cur_prc, prev_cnt)
+        
+        if short_tail:
+            if cur_prc > slice_percent:
+                return result_items if result_items else [(' ', 0, domain),]
+            else:
+                result_items.append(items[i] + (domain,))
+        else:
+            if cur_prc > slice_percent:
+                if items[i][1] == prev_cnt:
+                    result_items.append(items[i] + (domain,))
+                else:
+                    return result_items if result_items else [(' ', 0, domain),]
+            else:
+                result_items.append(items[i] + (domain,))
+    else:
+        return result_items if result_items else [(' ', 0, domain),]
 
 
 #%%
@@ -358,13 +387,13 @@ def fr_dist_with_domain(text, ref, slice_percent):
 wet_list also accepts compressed files *.warc.wet.gz
 Процент обрезания задавать параметрически, чтобы постом можно было подобрать оптимальный.
 '''
-def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=10):
+def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=95, short_tail=1):
     if not wet_list:
         print('wet_list is not specified')
-        return 
+        return
     
-    wet_list = wet_list[-1:] # one (last 00639) in list (require all list)
-    # wet_list = wet_list[0:1]
+#     wet_list = wet_list[-1:] # one (last 00639) in list (require all list)
+    wet_list = wet_list[0:2]
     
     for wet_file in wet_list:
         warc = warcat.model.WARC()
@@ -380,14 +409,13 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=10):
         
         wet_fr_dist = []
         
-        for i, record in enumerate(warc.records[0:]): # sliced here!
+        for i, record in enumerate(warc.records): # sliced here! warc.records[:50]
             file_uri = record.header.fields.get('WARC-Target-URI')
             print(record.header.fields.list(), 'Num: ', i, sep='\t', end='\n\n')
             
             if record.warc_type != 'warcinfo':
                 with record.content_block.get_file() as f:
                     text = bytes.decode(f.read())
-#                     file_name_urn = record.header.fields.get('WARC-Record-ID').split(':')[-1][:-1] + '.txt'
                     
                     # а и по ним строить частотное распределение
                     emails = ' '.join(regex_email.findall(text))
@@ -395,15 +423,7 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=10):
                     hash_tags = ' '.join(regex_hashtag.findall(text))
                     
                     cleaned_text = clean_text(text) + '  ' + emails + '  ' + sites + '  ' + hash_tags
-                    fr_dist = fr_dist_with_domain(cleaned_text, file_uri, slice_percent)
-                    wet_fr_dist += fr_dist
-                    
-#                     with open(os.path.join(pth, file_name_urn), 'w') as f_to_fs:
-#                         f_to_fs.write(cleaned_text)
-                        
-#                     print('\nDirty: \n\n', text, end='\n\n')
-#                     print('\nFrDist: \n\n', fr_dist, '\n', end='\n\n')
-#                     print('\nCleaned text: \n\n', cleaned_text, end='\n\n')
+                    wet_fr_dist.extend(fr_dist_with_domain(cleaned_text, file_uri, slice_percent, short_tail))
                     
         else: # WET file end loop -- save to csv
             file_name_wet_csv = wet_file[3:] + '.csv'
@@ -413,18 +433,26 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=10):
 
 
 #%%
+# if __name__ == '__main__':
+#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 95, 1)
+
+
+#%%
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('slice_percent', 
                         help='Slice percent. Used to cut off the trash tail of the frequency distribution.',
                         type=int)
-    
-    prc = 0
+    parser.add_argument('short_tail',
+                        help='Short tail. Used to preserve the tail which has the words with equal frequency.',
+                        type=int)
     
     args = parser.parse_args()
-    prc = args.slice_percent
     
-    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), prc)
+    prc = args.slice_percent
+    sh_tail = args.short_tail
+    
+    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), prc, sh_tail)
 
 
 #%%
