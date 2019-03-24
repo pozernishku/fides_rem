@@ -427,7 +427,14 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=90, short_tail=
     
     for wet_file in wet_list:
         warc = warcat.model.WARC()
-        warc.load(wet_file)
+        
+        try:
+            warc.load(wet_file)
+        except Exception as e:
+            print('Error in ', wet_file)
+            with open(os.path.join('./output', wet_file[3:] + '.error'), 'w') as e_f:
+                e_f.write(str(e))
+            continue
         
         pth = os.path.join('./output', wet_file[3:])
 #         lg = os.path.join('./logs', wet_file[3:]) # logging - continue
