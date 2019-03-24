@@ -4,7 +4,7 @@ import glob
 import csv
 import warcat.model
 import argparse
-import logging
+# import logging
 import os
 import re
 from operator import itemgetter, attrgetter
@@ -334,8 +334,11 @@ def clean_text(text):
 
 и еще один нюанс: часто порог попадает на группу слов с одинаковой частотой, особенно, если объем текста большой,
 так вот, хорошо бы либо всю эту группу либо отбрасывать, либо включать;
+
+стоит добавить ещё один параметр (?) strip_ones=1
+- думаю, да, пригодится.
 '''
-def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1):
+def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1, strip_ones=1):
     words_list = text.lower().split()
     domain = strip_urls(ref).lower()
         
@@ -359,15 +362,24 @@ def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1):
         return [(items[0] + (domain,)),]
     
     cur_prc = 0
+    cnt_fr_words = 0
+    first_one_idx = None
+    cnt_border = 25 # Change to 25!
     
     for i in range(cnt_dist):
         cur_prc += 100 / (cnt_all/items[i][1])
         prev_cnt = 0 if i == 0 else items[i-1][1]
-#         print(items[i][0], items[i][1], cur_prc, prev_cnt)
+        cnt_fr_words += 1 if items[i][1] > 1 else 0
+        first_one_idx = i if first_one_idx is None and items[i][1] == 1 else first_one_idx
+        
+#         print(items[i][0], items[i][1], cur_prc, prev_cnt, cnt_fr_words, first_one_idx)
         
         if short_tail:
             if cur_prc > slice_percent:
-                return result_items if result_items else [(' ', 0, domain),]
+                if strip_ones == 1 and cnt_fr_words > cnt_border:
+                    return strip_ones_func(result_items, first_one_idx, domain)
+                else:
+                    return result_items if result_items else [(' ', 0, domain),]
             else:
                 result_items.append(items[i] + (domain,))
         else:
@@ -375,11 +387,29 @@ def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1):
                 if items[i][1] == prev_cnt:
                     result_items.append(items[i] + (domain,))
                 else:
-                    return result_items if result_items else [(' ', 0, domain),]
+                    if strip_ones == 1 and cnt_fr_words > cnt_border:
+                        return strip_ones_func(result_items, first_one_idx, domain)
+                    else:
+                        return result_items if result_items else [(' ', 0, domain),]
             else:
                 result_items.append(items[i] + (domain,))
     else:
-        return result_items if result_items else [(' ', 0, domain),]
+        if strip_ones == 1 and cnt_fr_words > cnt_border:
+            return strip_ones_func(result_items, first_one_idx, domain)
+        else:
+            return result_items if result_items else [(' ', 0, domain),]
+
+
+#%%
+def strip_ones_func(items, idx, dmn):
+    if items and idx is not None:
+        return items[:idx]
+    elif items and idx is None:
+        return items
+    elif not items:
+        return [(' ', 0, dmn),]
+    else:
+        return items[:idx]
 
 
 #%%
@@ -387,13 +417,13 @@ def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1):
 wet_list also accepts compressed files *.warc.wet.gz
 Процент обрезания задавать параметрически, чтобы постом можно было подобрать оптимальный.
 '''
-def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=90, short_tail=1):
+def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=90, short_tail=1, strip_ones=1):
     if not wet_list:
         print('wet_list is not specified')
         return
     
 #     wet_list = wet_list[-1:] # one (last 00639) in list (require all list)
-    wet_list = wet_list[2:20]
+#     wet_list = wet_list[0:3]
     
     for wet_file in wet_list:
         warc = warcat.model.WARC()
@@ -423,7 +453,8 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=90, short_tail=
                     hash_tags = ' '.join(regex_hashtag.findall(text))
                     
                     cleaned_text = clean_text(text) + '  ' + emails + '  ' + sites + '  ' + hash_tags
-                    wet_fr_dist.extend(fr_dist_with_domain(cleaned_text, file_uri, slice_percent, short_tail))
+                    wet_fr_dist.extend(fr_dist_with_domain(cleaned_text, file_uri, slice_percent, 
+                                                           short_tail, strip_ones))
                     
         else: # WET file end loop -- save to csv
             file_name_wet_csv = wet_file[3:] + '.csv'
@@ -434,7 +465,7 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=90, short_tail=
 
 #%%
 # if __name__ == '__main__':
-#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 90, 1)
+#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 90, 1, 1)
 
 
 #%%
@@ -446,13 +477,14 @@ if __name__ == '__main__':
     parser.add_argument('short_tail',
                         help='Short tail. Used to preserve the tail which has the words with equal frequency.',
                         type=int)
+    parser.add_argument('strip_ones',
+                        help='Strip ones. Used to strip words with freq of one if more than 25 words have freq > 1.',
+                        type=int)
     
     args = parser.parse_args()
     
-    prc = args.slice_percent
-    sh_tail = args.short_tail
-    
-    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), prc, sh_tail)
+    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), args.slice_percent, 
+                                    args.short_tail, args.strip_ones)
 
 
 #%%
