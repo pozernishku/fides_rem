@@ -1,6 +1,7 @@
 .vscode/*
-.ipynb_checkpoints/*.ipynb
+.ipynb_checkpoints/*
 __pycache__/*
 .DS_Store
 *.gz
 *.wet
+output/*
