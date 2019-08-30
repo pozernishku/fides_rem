@@ -502,15 +502,32 @@ def strip_ones_func(items, idx):
 wet_list also accepts compressed files *.warc.wet.gz
 Процент обрезания задавать параметрически, чтобы постом можно было подобрать оптимальный.
 '''
-def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=90, short_tail=1, strip_ones=1, lang_percent=80):
+def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.done', 
+                                    slice_percent=90, short_tail=1, strip_ones=1, lang_percent=80):
     if not wet_list:
         print('wet_list is not specified')
         return
     
+    done_set = set()
+    
+    try:
+        with open(done_list_file, newline='') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                done_set.add(row.pop())
+    except Exception as e:
+        print(str(e))
+        return
+    
 #     wet_list = wet_list[-2:-1] # one (last 00639) in list (require all list)
-#     wet_list = wet_list[0:3]
+    wet_list = wet_list[0:3] #!!!!
     
     for wet_file in wet_list:
+        # new iteration if wet_file is done earlier
+        if wet_file[3:] in done_set:
+            print(wet_file[3:], 'is in', done_list_file, '- skipped.')
+            continue
+        
         warc = warcat.model.WARC()
             
         try:
@@ -553,11 +570,16 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=90, short_tail=
             with open(os.path.join(pth, file_name_wet_csv), 'w', newline='') as csv_f:
                 writer = csv.writer(csv_f, delimiter='\t')
                 writer.writerows(wet_fr_dist)
+            
+            # Add WET file name to wet.paths.done list
+            with open(done_list_file, 'a', newline='') as f:
+                writer = csv.writer(f, delimiter='\t')
+                writer.writerows([(wet_file[3:],)])
 
 
 #%%
 # if __name__ == '__main__':
-#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 90, 1, 1, 80)
+#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', 90, 1, 1, 80)
 
 
 #%%
@@ -577,7 +599,7 @@ if __name__ == '__main__':
                         type=int)
     args = parser.parse_args()
     
-    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), args.slice_percent, 
+    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', args.slice_percent, 
                                     args.short_tail, args.strip_ones, args.lang_percent)
 
 
