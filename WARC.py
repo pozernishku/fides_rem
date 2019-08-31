@@ -4,7 +4,7 @@
 #%%
 import glob
 import csv
-import warcat.model
+from warcio.archiveiterator import ArchiveIterator
 import argparse
 # import logging
 import os
@@ -528,15 +528,6 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
             print(wet_file[3:], 'is in', done_list_file, '- skipped.')
             continue
         
-        warc = warcat.model.WARC()
-            
-        try:
-            warc.load(wet_file)
-        except Exception as e:
-            print('Error in ', wet_file)
-            with open(os.path.join('./output', wet_file[3:] + '.error'), 'w') as e_f:
-                e_f.write(str(e))
-            continue
         
         pth = os.path.join('./output', wet_file[3:])
 #         lg = os.path.join('./logs', wet_file[3:]) # logging - continue
@@ -544,37 +535,38 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
         os.makedirs(pth, exist_ok=True)
 #         os.makedirs(lg, exist_ok=True)
         
-        print('File: ', wet_file, 'Records: ', len(warc.records), sep='\t', end='\n\n') # to logs is better
+        print('File: ', wet_file, 'Records: ', 'Iterator in use', sep='\t', end='\n\n') # to logs is better
         
         wet_fr_dist = []
         
-        for i, record in enumerate(warc.records): # sliced here! warc.records[:50]
-            file_uri = record.header.fields.get('WARC-Target-URI')
-            print(record.header.fields.list(), 'Num: ', i, sep='\t', end='\n\n')
-            
-            if record.warc_type != 'warcinfo':
-                with record.content_block.get_file() as f:
-                    text = bytes.decode(f.read())
-                    
+        with open(wet_file, 'rb') as stream:
+            for i, record in enumerate(ArchiveIterator(stream)):
+#                 if i < 50: # sliced here! 
+                file_uri = record.rec_headers.get_header('WARC-Target-URI')
+                print(record.rec_headers, 'Num: ', i, sep='\t', end='\n\n')
+
+                if record.rec_type != 'warcinfo':
+                    text = bytes.decode(record.content_stream().read())
+
                     # а и по ним строить частотное распределение
                     emails = ' '.join(regex_email.findall(text))
                     sites = ' '.join(map(strip_urls, regex_www.findall(text)))
                     hash_tags = ' '.join(regex_hashtag.findall(text))
-                    
+
                     cleaned_text = clean_text(text) + '  ' + emails + '  ' + sites + '  ' + hash_tags
                     wet_fr_dist.extend(fr_dist_with_domain(cleaned_text, file_uri, slice_percent, 
                                                            short_tail, strip_ones, lang_percent))
-                    
-        else: # WET file end loop -- save to csv
-            file_name_wet_csv = wet_file[3:] + '.csv'
-            with open(os.path.join(pth, file_name_wet_csv), 'w', newline='') as csv_f:
-                writer = csv.writer(csv_f, delimiter='\t')
-                writer.writerows(wet_fr_dist)
-            
-            # Add WET file name to wet.paths.done list
-            with open(done_list_file, 'a', newline='') as f:
-                writer = csv.writer(f, delimiter='\t')
-                writer.writerows([(wet_file[3:],)])
+                                      
+            else: # WET file end loop -- save to csv
+                file_name_wet_csv = wet_file[3:] + '.csv'
+                with open(os.path.join(pth, file_name_wet_csv), 'w', newline='') as csv_f:
+                    writer = csv.writer(csv_f, delimiter='\t')
+                    writer.writerows(wet_fr_dist)
+
+                # Add WET file name to wet.paths.done list
+                with open(done_list_file, 'a', newline='') as f:
+                    writer = csv.writer(f, delimiter='\t')
+                    writer.writerows([(wet_file[3:],)])
 
 
 #%%

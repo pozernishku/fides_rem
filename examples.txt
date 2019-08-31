@@ -1,0 +1,161 @@
+--------warcio--------
+https://github.com/webrecorder/warcio
+https://pypi.org/project/warcio/#description
+
+from warcio.archiveiterator import ArchiveIterator
+with open('../CC-MAIN-20190715175205-20190715201205-00291.warc.wet', 'rb') as stream:
+    for i, record in enumerate(ArchiveIterator(stream)):
+#         if record.rec_type == 'response':
+        if i < 500:
+            print('rec_num', i)
+            print('rec_type', record.rec_type)
+            print(record.rec_headers.get_header('WARC-Target-URI'))
+            print(type(record.rec_headers))
+#             print(bytes.decode(record.content_stream().read()))
+    #         print(record.content_stream().read(70))
+        else:
+            break
+
+--------warcio--------
+
+
+
+
+# https://github.com/chfoo/warcat
+# works
+import warcat.model
+
+warc = warcat.model.WARC()
+
+warc.load('CC-MAIN-20190124121622-20190124143622-00639.warc.wet.gz') # loads as *.gz
+# CC-MAIN-20190115225438-20190116011438-00000.warc.wet.gz
+
+len(warc.records)
+
+record = warc.records[1] # warc.records[0]
+
+record.warc_type
+
+record.content_length
+
+record.header.version
+
+record.header.fields.list()
+
+record.header.fields.get('WARC-Target-URI')
+
+record.content_block.iter_file()
+
+for itr in record.content_block.iter_file():
+    print(itr)
+
+record.header.fields['content-type']
+
+record.content_block.fields.list()
+
+record.content_block.fields['Software-Info']
+
+record.content_block.payload.length
+
+bytes(warc)[:60]
+
+bytes(record.content_block.fields)[:60]
+
+
+
+
+
+-----logs-----
+
+import logging
+
+#DEBUG by 10
+#INFO 20 
+#WARNING 30 etc
+#ERROR
+#CRITICAL
+
+logging.basicConfig(filename='./logs/test.log', filemode='w', level=logging.DEBUG)
+
+
+def add(x,y):
+    return x + y
+
+def div(x,y):
+    return x / y
+
+n1, n2 = 10, 5
+
+
+
+add_result = add(n1,n2)
+
+logging.debug('Add: {} + {} = {}'.format(n1,n2,add_result))
+
+
+
+div_result = div(n1,n2)
+
+logging.debug('Div: {} / {} = {}'.format(n1,n2,div_result))
+
+
+
+----- non breaking space -----
+import re
+
+regex_nbspace = re.compile(r"\s+", re.MULTILINE)
+
+s = 'a b c' # first space is the non breaking space and second is the space.
+
+regex_nbspace.findall(s)
+
+regex_nbspace.sub('1', s)
+
+int('0x10FFFF', 16) # Unicode to bounder.
+
+
+
+chr(160) # non breaking space
+
+chr(32) # space
+
+hex(ord(' ')) # non breaking space
+
+hex(ord(' ')) # space
+
+
+
+--------------------psycopg2----------------
+-------------------db adapter--------------
+import psycopg2
+
+conn = psycopg2.connect("dbname=postgres user=zackushka")
+
+cur = conn.cursor()
+
+# cur.execute("CREATE TABLE test (id serial PRIMARY KEY, num integer, data varchar);")
+
+# cur.execute("INSERT INTO test (num, data) VALUES (%s, %s)", (100, "abc'def"))
+
+with open('./output/CC-MAIN-20190115225438-20190116011438-00004.warc.wet.gz/CC-MAIN-20190115225438-20190116011438-00004.warc.wet.gz.csv') as csv_file:
+    cur.copy_from(csv_file, 'dict_data', columns=('word', 'fr_count', 'domain'))
+
+cur.execute("select * from dict_data;")
+
+cur.execute("select count(*) from dict_data;")
+
+cur.fetchall()
+
+conn.rollback()
+
+cur.fetchone()
+
+conn.commit()
+
+cur.close()
+
+conn.close()
+
+
+
+-----------
