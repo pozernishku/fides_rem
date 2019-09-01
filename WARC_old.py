@@ -1,13 +1,8 @@
-#!/usr/bin/env python3
-
-
-# To add a new cell, type '#%%'
-# To add a new markdown cell, type '#%% [markdown]'
 
 #%%
 import glob
 import csv
-from warcio.archiveiterator import ArchiveIterator
+import warcat.model
 import argparse
 # import logging
 import os
@@ -343,7 +338,7 @@ def clean_text(text):
 стоит добавить ещё один параметр (?) strip_ones=1
 - думаю, да, пригодится.
 '''
-def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1, strip_ones=1, lang_percent=80):
+def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1, strip_ones=1):
     words_list = text.lower().split()
     domain = strip_urls(ref).lower()
         
@@ -361,10 +356,10 @@ def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1, strip_ones=1,
     if cnt_all == 0:
         return [(' ', 0, domain),]
     elif cnt_all == 1:
-        return drop_non_latin_rus([(words_list[0], 1, domain),], domain, lang_percent)
+        return [(words_list[0], 1, domain),]
     
     if cnt_dist == 1:
-        return drop_non_latin_rus([(items[0] + (domain,)),], domain, lang_percent)
+        return [(items[0] + (domain,)),]
     
     cur_prc = 0
     cnt_fr_words = 0
@@ -382,11 +377,9 @@ def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1, strip_ones=1,
         if short_tail:
             if cur_prc > slice_percent:
                 if strip_ones == 1 and cnt_fr_words > cnt_border:
-                    return strip_ones_func(drop_non_latin_rus(result_items, domain, lang_percent), 
-                                           first_one_idx)
+                    return strip_ones_func(result_items, first_one_idx, domain)
                 else:
-                    return drop_non_latin_rus(result_items, domain, 
-                                              lang_percent) if result_items else [(' ', 0, domain),]
+                    return result_items if result_items else [(' ', 0, domain),]
             else:
                 result_items.append(items[i] + (domain,))
         else:
@@ -395,107 +388,26 @@ def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1, strip_ones=1,
                     result_items.append(items[i] + (domain,))
                 else:
                     if strip_ones == 1 and cnt_fr_words > cnt_border:
-                        return strip_ones_func(drop_non_latin_rus(result_items, domain, lang_percent), 
-                                               first_one_idx)
+                        return strip_ones_func(result_items, first_one_idx, domain)
                     else:
-                        return drop_non_latin_rus(result_items, domain, 
-                                                  lang_percent) if result_items else [(' ', 0, domain),]
+                        return result_items if result_items else [(' ', 0, domain),]
             else:
                 result_items.append(items[i] + (domain,))
     else:
         if strip_ones == 1 and cnt_fr_words > cnt_border:
-            return strip_ones_func(drop_non_latin_rus(result_items, domain, lang_percent), first_one_idx)
+            return strip_ones_func(result_items, first_one_idx, domain)
         else:
-            return drop_non_latin_rus(result_items, domain, lang_percent) if result_items else [(' ', 0, domain),]
+            return result_items if result_items else [(' ', 0, domain),]
 
 
 #%%
-'''
-оставить языки которые используют:
-- латиницу
-- русский
-
-Filter used in fr_dist_with_domain which drops out frequency distributions 
-with low language percent of cyrillic or latin chars.
-'''
-
-def drop_non_latin_rus(items, domain, lang_percent=80):
-    symb_count_all = 0
-    symb_count_fit = 0
-    
-    if not items:
-        return [(' ', 0, domain),] # adds empty record with specified domain 
-    else:
-        for item in items:
-            word = item[0]
-            word_frequency = item[1]
-            n = len(word)
-            N = 0
-            for c in word:
-                x = ord(c)
-                if ((x >= 0x0000 and x <= 0x02AF)    # below are blocks of Latin script in Unicode
-                    or (x >= 0x1D00 and x <= 0x1DBF) # https://en.wikipedia.org/wiki/Latin_script_in_Unicode
-                    or (x >= 0x1E00 and x <= 0x1EFF)
-                    or (x >= 0x2070 and x <= 0x209F)
-                    or (x >= 0x2100 and x <= 0x218F)
-                    or (x >= 0x2C60 and x <= 0x2C7F)
-                    or (x >= 0xA720 and x <= 0xA7FF)
-                    or (x >= 0xAB30 and x <= 0xAB6F)
-                    or (x >= 0xFB00 and x <= 0xFB06)
-                    or (x >= 0xFF00 and x <= 0xFF64)
-                    or (x >= 0x2460 and x <= 0x24FF) # https://en.wikipedia.org/wiki/Enclosed_Alphanumerics
-                    or (x >= 0x3248 and x <= 0x325F) # https://en.wikipedia.org/wiki/Enclosed_CJK_Letters_and_Months
-                    or (x >= 0x32B1 and x <= 0x32BF) # continue
-                    or (x >= 0x1D400 and x <= 0x1D7FF)#https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols
-                    or (x >= 0x1F100 and x <= 0x1F1FF)
-                    or (x >= 0xA4D0 and x <= 0xA4FF) # https://en.wikipedia.org/wiki/Lisu_(Unicode_block)
-                    
-                    or (x >= 0x0400 and x <= 0x052F) # below are blocks of Cyrillic script in Unicode
-                    or (x >= 0x2DE0 and x <= 0x2DFF) # https://en.wikipedia.org/wiki/Cyrillic_script_in_Unicode
-                    or (x >= 0xA640 and x <= 0xA69F)
-                    or (x >= 0x1C80 and x <= 0x1C8F)
-                    
-                    or (chr(x) in dashes_set)
-                    or (chr(x) == period)
-                    or (chr(x) == ampersand)
-                    or (chr(x) in apostrophe_set)
-                    or (chr(x) in digits_set)
-                   ):
-                    N += 1
-                else:
-                    N += 0
-#                 print(c, n, N, word_frequency)
-            else:
-                symb_count_all += n * word_frequency
-                symb_count_fit += N * word_frequency
-            
-#             print(item, n, N, word_frequency, symb_count_all, symb_count_fit)
-        else:
-            prc_fit = symb_count_fit / symb_count_all * 100
-            
-            if prc_fit >= lang_percent:
-#                 print('>>>>>>> ADDED!', domain, lang_percent)
-#                 print(symb_count_all, symb_count_fit)
-#                 print(items)
-#                 print()
-                return items
-            else:
-#                 print('>>>>>>> DROPED!', domain, lang_percent)
-#                 print(symb_count_all, symb_count_fit)
-#                 print(items)
-#                 print()
-                return []
-
-
-#%%
-def strip_ones_func(items, idx):
+def strip_ones_func(items, idx, dmn):
     if items and idx is not None:
         return items[:idx]
     elif items and idx is None:
         return items
     elif not items:
-        return items
-#         return [(' ', 0, dmn),] # removed parameter dmn
+        return [(' ', 0, dmn),]
     else:
         return items[:idx]
 
@@ -505,32 +417,24 @@ def strip_ones_func(items, idx):
 wet_list also accepts compressed files *.warc.wet.gz
 Процент обрезания задавать параметрически, чтобы постом можно было подобрать оптимальный.
 '''
-def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.done', 
-                                    slice_percent=90, short_tail=1, strip_ones=1, lang_percent=80):
+def clean_tokenize_frqdis_wet_files(wet_list=None, slice_percent=90, short_tail=1, strip_ones=1):
     if not wet_list:
         print('wet_list is not specified')
         return
     
-    done_set = set()
-    
-    try:
-        with open(done_list_file, newline='') as f:
-            reader = csv.reader(f)
-            for row in reader:
-                done_set.add(row.pop())
-    except Exception as e:
-        print(str(e))
-        return
-    
-#     wet_list = wet_list[-2:-1] # one (last 00639) in list (require all list)
-    wet_list = wet_list[100:140] #!!!!
+    wet_list = wet_list[-1:] # one (last 00639) in list (require all list)
+#     wet_list = wet_list[0:3]
     
     for wet_file in wet_list:
-        # new iteration if wet_file is done earlier
-        if wet_file[3:] in done_set:
-            print(wet_file[3:], 'is in', done_list_file, '- skipped.')
-            continue
+        warc = warcat.model.WARC()
         
+        try:
+            warc.load(wet_file)
+        except Exception as e:
+            print('Error in ', wet_file)
+            with open(os.path.join('./output', wet_file[3:] + '.error'), 'w') as e_f:
+                e_f.write(str(e))
+            continue
         
         pth = os.path.join('./output', wet_file[3:])
 #         lg = os.path.join('./logs', wet_file[3:]) # logging - continue
@@ -538,43 +442,37 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
         os.makedirs(pth, exist_ok=True)
 #         os.makedirs(lg, exist_ok=True)
         
-        print('File: ', wet_file, 'Records: ', 'Iterator in use', sep='\t', end='\n\n') # to logs is better
+        print('File: ', wet_file, 'Records: ', len(warc.records), sep='\t', end='\n\n') # to logs is better
         
         wet_fr_dist = []
         
-        with open(wet_file, 'rb') as stream:
-            for i, record in enumerate(ArchiveIterator(stream)):
-#                 if i < 50: # sliced here! 
-                file_uri = record.rec_headers.get_header('WARC-Target-URI')
-                print(record.rec_headers, 'Num: ', i, sep='\t', end='\n\n')
-
-                if record.rec_type != 'warcinfo':
-                    text = bytes.decode(record.content_stream().read())
-
+        for i, record in enumerate(warc.records): # sliced here! warc.records[:50]
+            file_uri = record.header.fields.get('WARC-Target-URI')
+            print(record.header.fields.list(), 'Num: ', i, sep='\t', end='\n\n')
+            
+            if record.warc_type != 'warcinfo':
+                with record.content_block.get_file() as f:
+                    text = bytes.decode(f.read())
+                    
                     # а и по ним строить частотное распределение
                     emails = ' '.join(regex_email.findall(text))
                     sites = ' '.join(map(strip_urls, regex_www.findall(text)))
                     hash_tags = ' '.join(regex_hashtag.findall(text))
-
+                    
                     cleaned_text = clean_text(text) + '  ' + emails + '  ' + sites + '  ' + hash_tags
                     wet_fr_dist.extend(fr_dist_with_domain(cleaned_text, file_uri, slice_percent, 
-                                                           short_tail, strip_ones, lang_percent))
-                                      
-            else: # WET file end loop -- save to csv
-                file_name_wet_csv = wet_file[3:] + '.csv'
-                with open(os.path.join(pth, file_name_wet_csv), 'w', newline='') as csv_f:
-                    writer = csv.writer(csv_f, delimiter='\t')
-                    writer.writerows(wet_fr_dist)
-
-                # Add WET file name to wet.paths.done list
-                with open(done_list_file, 'a', newline='') as f:
-                    writer = csv.writer(f, delimiter='\t')
-                    writer.writerows([(wet_file[3:],)])
+                                                           short_tail, strip_ones))
+                    
+        else: # WET file end loop -- save to csv
+            file_name_wet_csv = wet_file[3:] + '.csv'
+            with open(os.path.join(pth, file_name_wet_csv), 'w', newline='') as csv_f:
+                writer = csv.writer(csv_f, delimiter='\t')
+                writer.writerows(wet_fr_dist)
 
 
 #%%
 # if __name__ == '__main__':
-#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', 90, 1, 1, 80)
+#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 90, 1, 1)
 
 
 #%%
@@ -589,32 +487,14 @@ if __name__ == '__main__':
     parser.add_argument('strip_ones',
                         help='Strip ones. Used to strip words with freq of one if more than 25 words have freq > 1.',
                         type=int)
-    parser.add_argument('lang_percent',
-                        help='Language percent. Used to drop out frequency distributions with low language percent of cyrillic or latin chars.',
-                        type=int)
+    
     args = parser.parse_args()
     
-    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', args.slice_percent, 
-                                    args.short_tail, args.strip_ones, args.lang_percent)
+    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), args.slice_percent, 
+                                    args.short_tail, args.strip_ones)
 
 
 #%%
 
-
-
-#%%
-# import fasttext
-
-
-#%%
-# x = fasttext.tokenize('tet I`m. Go with me Mr. John, how are you. you`d like it \ \ + f')
-
-
-#%%
-# x
-
-
-#%%
-# help(fasttext.FastText)
 
 
