@@ -523,7 +523,7 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
         return
     
 #     wet_list = wet_list[-2:-1] # one (last 00639) in list (require all list)
-    wet_list = wet_list[100:140] #!!!!
+    wet_list = wet_list[140:200] #!!!!
     
     for wet_file in wet_list:
         # new iteration if wet_file is done earlier
