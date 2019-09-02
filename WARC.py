@@ -528,7 +528,7 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
     for wet_file in wet_list:
         # new iteration if wet_file is done earlier
         if wet_file[3:] in done_set:
-            print(wet_file[3:], 'is in', done_list_file, '- skipped.')
+            print(wet_file[3:], 'is in', done_list_file, '- skipped.', end='\n\n')
             continue
         
         
@@ -546,7 +546,9 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
             for i, record in enumerate(ArchiveIterator(stream)):
 #                 if i < 50: # sliced here! 
                 file_uri = record.rec_headers.get_header('WARC-Target-URI')
-                print(record.rec_headers, 'Num: ', i, sep='\t', end='\n\n')
+    
+                if i%10000 == 0:
+                    print(record.rec_headers, 'Num: ', i, sep='\t', end='\n\n')
 
                 if record.rec_type != 'warcinfo':
                     text = bytes.decode(record.content_stream().read())
