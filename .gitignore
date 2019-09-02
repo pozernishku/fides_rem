@@ -5,3 +5,7 @@ __pycache__/*
 *.gz
 *.wet
 output/*
+test/*
+fides_docker/*
+sql/*
+*.ipynb

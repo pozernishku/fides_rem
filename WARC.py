@@ -523,7 +523,7 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
         return
     
 #     wet_list = wet_list[-2:-1] # one (last 00639) in list (require all list)
-    wet_list = wet_list[140:200] #!!!!
+    wet_list = wet_list[200:203] #!!!!
     
     for wet_file in wet_list:
         # new iteration if wet_file is done earlier
@@ -532,10 +532,12 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
             continue
         
         
-        pth = os.path.join('./output', wet_file[3:])
+#         pth = os.path.join('./output', wet_file[3:])
 #         lg = os.path.join('./logs', wet_file[3:]) # logging - continue
+        
+        pth = './output'
 
-        os.makedirs(pth, exist_ok=True)
+#         os.makedirs(pth, exist_ok=True)
 #         os.makedirs(lg, exist_ok=True)
         
         print('File: ', wet_file, 'Records: ', 'Iterator in use', sep='\t', end='\n\n') # to logs is better
