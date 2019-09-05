@@ -506,7 +506,7 @@ wet_list also accepts compressed files *.warc.wet.gz
 Процент обрезания задавать параметрически, чтобы постом можно было подобрать оптимальный.
 '''
 def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.done', 
-                                    slice_percent=90, short_tail=1, strip_ones=1, lang_percent=80):
+                                    slice_percent=90, short_tail=1, strip_ones=1, lang_percent=80, count=100):
     if not wet_list:
         print('wet_list is not specified')
         return
@@ -522,8 +522,7 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
         print(str(e))
         return
     
-#     wet_list = wet_list[-2:-1] # one (last 00639) in list (require all list)
-    wet_list = wet_list[350:550] #!!!!
+    wet_list = wet_list[:count]
     
     for wet_file in wet_list:
         # new iteration if wet_file is done earlier
@@ -578,7 +577,7 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
 
 #%%
 # if __name__ == '__main__':
-#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', 90, 1, 1, 80)
+#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', 90, 1, 1, 80, 2)
 
 
 #%%
@@ -596,10 +595,13 @@ if __name__ == '__main__':
     parser.add_argument('lang_percent',
                         help='Language percent. Used to drop out frequency distributions with low language percent of cyrillic or latin chars.',
                         type=int)
+    parser.add_argument('count',
+                        help='WET-files count to process from WET-files list. Those files which are already done will be skipped.',
+                        type=int)
     args = parser.parse_args()
     
     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', args.slice_percent, 
-                                    args.short_tail, args.strip_ones, args.lang_percent)
+                                    args.short_tail, args.strip_ones, args.lang_percent, args.count)
 
 
 #%%

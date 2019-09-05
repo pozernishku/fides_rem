@@ -9,3 +9,4 @@ test/*
 fides_docker/*
 sql/*
 *.ipynb
+nohup.out
