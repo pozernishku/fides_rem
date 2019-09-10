@@ -5,6 +5,8 @@
 # To add a new markdown cell, type '#%% [markdown]'
 
 #%%
+import multiprocessing
+import time
 import glob
 import csv
 from warcio.archiveiterator import ArchiveIterator
@@ -506,7 +508,7 @@ wet_list also accepts compressed files *.warc.wet.gz
 Процент обрезания задавать параметрически, чтобы постом можно было подобрать оптимальный.
 '''
 def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.done', 
-                                    slice_percent=90, short_tail=1, strip_ones=1, lang_percent=80, count=100):
+                                    slice_percent=90, short_tail=1, strip_ones=1, lang_percent=80):
     if not wet_list:
         print('wet_list is not specified')
         return
@@ -522,7 +524,7 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
         print(str(e))
         return
     
-    wet_list = wet_list[:count]
+#     wet_list = wet_list[:count]
     
     for wet_file in wet_list:
         # new iteration if wet_file is done earlier
@@ -576,12 +578,16 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
 
 
 #%%
-# if __name__ == '__main__':
-#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', 90, 1, 1, 80, 2)
+def do_cpu_bound(args):
+    with multiprocessing.Pool() as pool:  # multiprocessing.Pool(processes=2)
+        pool.starmap(clean_tokenize_frqdis_wet_files, args)
 
 
 #%%
 if __name__ == '__main__':
+    paths = glob.glob("../*.warc.wet*")
+    args_list = []
+    
     parser = argparse.ArgumentParser()
     parser.add_argument('slice_percent', 
                         help='Slice percent. Used to cut off the trash tail of the frequency distribution.',
@@ -600,8 +606,73 @@ if __name__ == '__main__':
                         type=int)
     args = parser.parse_args()
     
-    clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', args.slice_percent, 
-                                    args.short_tail, args.strip_ones, args.lang_percent, args.count)
+    paths = paths[:args.count]
+    
+    for path in paths:
+        args_list.append(([path], 'wet.paths.done', args.slice_percent, args.short_tail, 
+                          args.strip_ones, args.lang_percent))
+        
+    start_time = time.time()
+    do_cpu_bound(args_list)
+    duration = time.time() - start_time
+    print('Duration {0} seconds'.format(duration))
+
+
+#%%
+# if __name__ == '__main__':
+#     paths = glob.glob("../*.warc.wet*")
+#     count = 10 # paramater
+#     args_list = []
+    
+#     paths = paths[:count]
+    
+#     for path in paths:
+#         args_list.append(([path], 'wet.paths.done', 90, 1, 1, 80))
+    
+#     start_time = time.time()
+#     do_cpu_bound(args_list)
+#     duration = time.time() - start_time
+#     print('Duration {0} seconds'.format(duration))
+
+
+#%%
+# if __name__ == '__main__':
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('slice_percent', 
+#                         help='Slice percent. Used to cut off the trash tail of the frequency distribution.',
+#                         type=int)
+#     parser.add_argument('short_tail',
+#                         help='Short tail. Used to preserve the tail which has the words with equal frequency.',
+#                         type=int)
+#     parser.add_argument('strip_ones',
+#                         help='Strip ones. Used to strip words with freq of one if more than 25 words have freq > 1.',
+#                         type=int)
+#     parser.add_argument('lang_percent',
+#                         help='Language percent. Used to drop out frequency distributions with low language percent of cyrillic or latin chars.',
+#                         type=int)
+#     parser.add_argument('count',
+#                         help='WET-files count to process from WET-files list. Those files which are already done will be skipped.',
+#                         type=int)
+#     args = parser.parse_args()
+    
+#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', args.slice_percent, 
+#                                     args.short_tail, args.strip_ones, args.lang_percent)
+
+
+#%%
+# if __name__ == '__main__':
+#     start_time = time.time()
+#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', 90, 1, 1, 80)
+#     duration = time.time() - start_time
+#     print('Duration {0} seconds'.format(duration))
+
+
+#%%
+
+
+
+#%%
+
 
 
 #%%
