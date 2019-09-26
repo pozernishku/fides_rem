@@ -8,6 +8,8 @@
 import multiprocessing
 import time
 import glob
+import gzip
+import shutil
 import csv
 from warcio.archiveiterator import ArchiveIterator
 import argparse
@@ -567,9 +569,17 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
                                       
             else: # WET file end loop -- save to csv
                 file_name_wet_csv = wet_file[3:] + '.csv'
-                with open(os.path.join(pth, file_name_wet_csv), 'w', newline='') as csv_f:
+                full_output_path = os.path.join(pth, file_name_wet_csv)
+                
+                with open(full_output_path, 'w', newline='') as csv_f:
                     writer = csv.writer(csv_f, delimiter='\t')
                     writer.writerows(wet_fr_dist)
+                
+                # gzip csv file
+                with open(full_output_path, 'rb') as f_in:
+                    with gzip.open(full_output_path+'.gz', 'wb') as f_out:
+                        shutil.copyfileobj(f_in, f_out)
+                os.remove(full_output_path)
 
                 # Add WET file name to wet.paths.done list
                 with open(done_list_file, 'a', newline='') as f:
@@ -621,7 +631,7 @@ if __name__ == '__main__':
 #%%
 # if __name__ == '__main__':
 #     paths = glob.glob("../*.warc.wet*")
-#     count = 10 # paramater
+#     count = 3 # paramater
 #     args_list = []
     
 #     paths = paths[:count]
