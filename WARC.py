@@ -6,6 +6,7 @@
 
 #%%
 import multiprocessing
+import requests
 import time
 import glob
 import gzip
@@ -13,10 +14,12 @@ import shutil
 import csv
 from warcio.archiveiterator import ArchiveIterator
 import argparse
-# import logging
 import os
 import re
 from operator import itemgetter, attrgetter
+
+TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
+CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
 
 regex_html_char_num = re.compile(r"&#?[0-9a-zA-Z]*;", re.MULTILINE)
 html_amp_dash_dict = {'&amp;':'&','&ndash;':'–','&mdash;':'—','&horbar;':'―','&minus;':'−',
@@ -534,22 +537,15 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
             print(wet_file[3:], 'is in', done_list_file, '- skipped.', end='\n\n')
             continue
         
+        pth = './output0'
+        os.makedirs(pth, exist_ok=True)
         
-#         pth = os.path.join('./output', wet_file[3:])
-#         lg = os.path.join('./logs', wet_file[3:]) # logging - continue
-        
-        pth = './output'
-
-#         os.makedirs(pth, exist_ok=True)
-#         os.makedirs(lg, exist_ok=True)
-        
-        print('File: ', wet_file, 'Records: ', 'Iterator in use', sep='\t', end='\n\n') # to logs is better
+        print('File: ', wet_file, 'Records: ', 'Iterator in use', sep='\t', end='\n\n')
         
         wet_fr_dist = []
         
         with open(wet_file, 'rb') as stream:
             for i, record in enumerate(ArchiveIterator(stream)):
-#                 if i < 50: # sliced here! 
                 file_uri = record.rec_headers.get_header('WARC-Target-URI')
     
                 if i%10000 == 0:
@@ -580,6 +576,9 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
                     with gzip.open(full_output_path+'.gz', 'wb') as f_out:
                         shutil.copyfileobj(f_in, f_out)
                 os.remove(full_output_path)
+
+                # Send file info to telegram bot
+                requests.get(f'https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={wet_file[3:]}')
 
                 # Add WET file name to wet.paths.done list
                 with open(done_list_file, 'a', newline='') as f:
@@ -643,50 +642,6 @@ if __name__ == '__main__':
 #     do_cpu_bound(args_list)
 #     duration = time.time() - start_time
 #     print('Duration {0} seconds'.format(duration))
-
-
-#%%
-# if __name__ == '__main__':
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument('slice_percent', 
-#                         help='Slice percent. Used to cut off the trash tail of the frequency distribution.',
-#                         type=int)
-#     parser.add_argument('short_tail',
-#                         help='Short tail. Used to preserve the tail which has the words with equal frequency.',
-#                         type=int)
-#     parser.add_argument('strip_ones',
-#                         help='Strip ones. Used to strip words with freq of one if more than 25 words have freq > 1.',
-#                         type=int)
-#     parser.add_argument('lang_percent',
-#                         help='Language percent. Used to drop out frequency distributions with low language percent of cyrillic or latin chars.',
-#                         type=int)
-#     parser.add_argument('count',
-#                         help='WET-files count to process from WET-files list. Those files which are already done will be skipped.',
-#                         type=int)
-#     args = parser.parse_args()
-    
-#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', args.slice_percent, 
-#                                     args.short_tail, args.strip_ones, args.lang_percent)
-
-
-#%%
-# if __name__ == '__main__':
-#     start_time = time.time()
-#     clean_tokenize_frqdis_wet_files(glob.glob("../*.warc.wet*"), 'wet.paths.done', 90, 1, 1, 80)
-#     duration = time.time() - start_time
-#     print('Duration {0} seconds'.format(duration))
-
-
-#%%
-
-
-
-#%%
-
-
-
-#%%
-
 
 
 #%%
