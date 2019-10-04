@@ -577,9 +577,13 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
                         shutil.copyfileobj(f_in, f_out)
                 os.remove(full_output_path)
 
-                # Send file info to telegram bot
-                requests.get('https://api.telegram.org/bot{0}/sendMessage?chat_id={1}&text={2}'.format(TOKEN, CHAT_ID, wet_file[3:]))
-
+                # Send file info to telegram chat (as telegram bot message)
+                try:
+                    requests.get('https://api.telegram.org/bot{0}/sendMessage?chat_id={1}&text={2}'.format(TOKEN, CHAT_ID, wet_file[3:]))
+                except:
+                    print('Telegram message not sent') # Message is to sdtout or nohup file
+                    print(wet_file[3:]) 
+                    
                 # Add WET file name to wet.paths.done list
                 with open(done_list_file, 'a', newline='') as f:
                     writer = csv.writer(f, delimiter='\t')
