@@ -578,7 +578,7 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
                 os.remove(full_output_path)
 
                 # Send file info to telegram bot
-                requests.get(f'https://api.telegram.org/bot{TOKEN}/sendMessage?chat_id={CHAT_ID}&text={wet_file[3:]}')
+                requests.get('https://api.telegram.org/bot{0}/sendMessage?chat_id={1}&text={2}'.format(TOKEN, CHAT_ID, wet_file[3:]))
 
                 # Add WET file name to wet.paths.done list
                 with open(done_list_file, 'a', newline='') as f:
