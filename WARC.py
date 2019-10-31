@@ -1,10 +1,20 @@
 #!/usr/bin/env python3
 
 
-# To add a new cell, type '#%%'
-# To add a new markdown cell, type '#%% [markdown]'
+# To add a new cell, type '# %%'
+# To add a new markdown cell, type '# %% [markdown]'
+# %% Change working directory from the workspace root to the ipynb file location. Turn this addition off with the DataScience.changeDirOnImportExport setting
+# ms-python.python added
+# import os
+# try:
+# 	os.chdir(os.path.join(os.getcwd(), '../../../../var/folders/xr/jv5nzs9972zcwf_kryyqtdkw0000gn/T'))
+# 	print(os.getcwd())
+# except:
+# 	pass
+# %%
 
-#%%
+
+# %%
 import multiprocessing
 import requests
 import time
@@ -18,8 +28,8 @@ import os
 import re
 from operator import itemgetter, attrgetter
 
-TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
-CHAT_ID = os.environ.get('TELEGRAM_CHAT_ID')
+TOKEN = '731386451:AAHN8H2DltXfhZHRxmPfVvekQlzSAsSa1LE'
+CHAT_ID = '128587080'
 
 regex_html_char_num = re.compile(r"&#?[0-9a-zA-Z]*;", re.MULTILINE)
 html_amp_dash_dict = {'&amp;':'&','&ndash;':'–','&mdash;':'—','&horbar;':'―','&minus;':'−',
@@ -45,7 +55,7 @@ apostrophe_set = {"'",'‵',"’",'‘','´','`','′'}
 digits_set = {'0','1','2','3','4','5','6','7','8','9'}
 
 
-#%%
+# %%
 '''
 пожалуй, еще нужно добавить фильтр на длину слова. Скажем, слова, более 30 символов - не обрабатывать.
 - точки между буквами не обрабатываются за искл. сочетание "точка+одиночная заглавная буква" разделяются пробелом;
@@ -83,7 +93,7 @@ def remove_long_words(text, word_length=30):
     return s
 
 
-#%%
+# %%
 '''
 - отдельно стоящие небуквенные и нецифровые последовательности удалять; это касается и тире, апострофа и амперсанда:
 Ano Novo – & Australia Day – Good Friday – Easter Saturday - Easter Monday
@@ -124,7 +134,7 @@ def final_cuts(word):
     return word
 
 
-#%%
+# %%
 def html_repl_func(match):
     if match.group() in html_amp_dash_dict:
         return html_amp_dash_dict[match.group()]
@@ -132,7 +142,7 @@ def html_repl_func(match):
         return ''
 
 
-#%%
+# %%
 '''
 -удалить все хтмл-символы, кроме дефиса и амперсанда (их заменять на символ);
 '''
@@ -144,7 +154,7 @@ def clean_html_char_num(text):
         return text
 
 
-#%%
+# %%
 def non_relevant_repl_func(match):
     if len(match.group(0)) > 1:
         return ' '
@@ -169,7 +179,7 @@ def non_relevant_repl_func(match):
             return match.group(0)
 
 
-#%%
+# %%
 def dot_capital_repl_func(match):
     if match.group(1).isupper():
         return ' ' + match.group(1)
@@ -177,7 +187,7 @@ def dot_capital_repl_func(match):
         return match.group(0)
 
 
-#%%
+# %%
 '''
 -все небуквенные и нецифровые символы между буквами заменяются на пробелы за исключением:
 тире (все виды), точки и апострофа (их тоже несколько) между буквами не обрабатываются;
@@ -191,7 +201,7 @@ def clean_non_relevant_symb(text):
         return text
 
 
-#%%
+# %%
 '''
 цифровые последовательности, не содержащие букв, удалятся;
 # цифры в перемешку с небуквенными символами остаются: A-077-B
@@ -204,7 +214,7 @@ def clean_alone_digits(text):
         return text
 
 
-#%%
+# %%
 '''
 сочетание "точка+одиночная заглавная буква" разделяются пробелом;
 name: DUC. Enjoy - все точки также удаляются, после обаботки: сочетание "точка+одиночная заглавная буква" разделяются пробелом;
@@ -218,7 +228,7 @@ def separate_dot_capital(text):
         return text
 
 
-#%%
+# %%
 '''
 name: DUC. Enjoy - все точки также удаляются, после обаботки: сочетание "точка+одиночная заглавная буква" разделяются пробелом; 
 удалено условие: тут удаляются все точки [^\s\w]+
@@ -239,7 +249,7 @@ def remaining_non_relevant_repl_func(match):
         return ' '
 
 
-#%%
+# %%
 # НЕ из перечисленных: амперсанд (&), тире(все виды), точка (.), апостраф(все виды)
 '''
 идея же в том, чтобы избавиться от небуквенных последовательностей, а также "помочь" токенизации при построении частотного распределения. 
@@ -257,7 +267,7 @@ def clean_remaining_non_relevant_symb(text):
         return text
 
 
-#%%
+# %%
 '''
 кстати, выделенные url, e-mail, hash-tag могут также пригодиться для оценки, 
 поэтому есть смысл их не просто удалять, а и по ним строить частотное распределение 
@@ -271,7 +281,7 @@ def clean_from_emails(text):
         return text
 
 
-#%%
+# %%
 def clean_from_www(text):
     match = regex_www.search(text)
     if match:
@@ -280,7 +290,7 @@ def clean_from_www(text):
         return text
 
 
-#%%
+# %%
 def clean_from_hashtag(text):
     match = regex_hashtag.search(text)
     if match:
@@ -289,7 +299,7 @@ def clean_from_hashtag(text):
         return text
 
 
-#%%
+# %%
 def strip_port(res_url):
     res_len = len(res_url)
     for d in range(1, 7 if res_len > 5 else res_len+1):
@@ -299,7 +309,7 @@ def strip_port(res_url):
         return res_url
 
 
-#%%
+# %%
 # h or w
 # if h then stop on third / or on the end of the string (if no more /) https://test.com   www.test.com/
 # if w then stop on first / or on the end of the string (if no more /)
@@ -317,7 +327,7 @@ def strip_urls(url):
         return strip_port(url).strip('\\')
 
 
-#%%
+# %%
 '''
 Clean text according to http://redmine-ots.co.spb.ru/issues/7415
 '''
@@ -334,7 +344,7 @@ def clean_text(text):
                                                                 clean_from_emails(text))))))))))
 
 
-#%%
+# %%
 '''
 Сокращение хвостов происходит по проценту от общей суммы слов (90-95%), это значит: 
 суммируются частоты всех слов (=100%), список слов ранжируется, например, по убыванию, 
@@ -416,7 +426,7 @@ def fr_dist_with_domain(text, ref, slice_percent=90, short_tail=1, strip_ones=1,
             return drop_non_latin_rus(result_items, domain, lang_percent) if result_items else [(' ', 0, domain),]
 
 
-#%%
+# %%
 '''
 оставить языки которые используют:
 - латиницу
@@ -494,7 +504,7 @@ def drop_non_latin_rus(items, domain, lang_percent=80):
                 return []
 
 
-#%%
+# %%
 def strip_ones_func(items, idx):
     if items and idx is not None:
         return items[:idx]
@@ -507,7 +517,7 @@ def strip_ones_func(items, idx):
         return items[:idx]
 
 
-#%%
+# %%
 '''
 wet_list also accepts compressed files *.warc.wet.gz
 Процент обрезания задавать параметрически, чтобы постом можно было подобрать оптимальный.
@@ -533,11 +543,12 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
     
     for wet_file in wet_list:
         # new iteration if wet_file is done earlier
-        if wet_file[3:] in done_set:
-            print(wet_file[3:], 'is in', done_list_file, '- skipped.', end='\n\n')
+        wet_file_name = wet_file[3:]
+        if wet_file_name in done_set:
+            print(wet_file_name, 'is in', done_list_file, '- skipped.', end='\n\n')
             continue
         
-        pth = './output0'
+        pth = './output1'
         os.makedirs(pth, exist_ok=True)
         
         print('File: ', wet_file, 'Records: ', 'Iterator in use', sep='\t', end='\n\n')
@@ -563,10 +574,16 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
                     wet_fr_dist.extend(fr_dist_with_domain(cleaned_text, file_uri, slice_percent, 
                                                            short_tail, strip_ones, lang_percent))
                                       
-            else: # WET file end loop -- save to csv
-                file_name_wet_csv = wet_file[3:] + '.csv'
+            else: # WET file end loop 
+                file_name_wet_csv = wet_file_name + '.csv'
                 full_output_path = os.path.join(pth, file_name_wet_csv)
                 
+                # add 4th column wet_file_name
+                if wet_fr_dist:
+                    for i in range(len(wet_fr_dist)):
+                        wet_fr_dist[i] = wet_fr_dist[i] + (wet_file_name,)
+                
+                # save to csv
                 with open(full_output_path, 'w', newline='') as csv_f:
                     writer = csv.writer(csv_f, delimiter='\t')
                     writer.writerows(wet_fr_dist)
@@ -579,24 +596,24 @@ def clean_tokenize_frqdis_wet_files(wet_list=None, done_list_file='wet.paths.don
 
                 # Send file info to telegram chat (as telegram bot message)
                 try:
-                    requests.get('https://api.telegram.org/bot{0}/sendMessage?chat_id={1}&text={2}'.format(TOKEN, CHAT_ID, wet_file[3:]))
+                    requests.get('https://api.telegram.org/bot{0}/sendMessage?chat_id={1}&text={2}'.format(TOKEN, CHAT_ID, wet_file_name))
                 except:
                     print('Telegram message not sent') # Message is to sdtout or nohup file
-                    print(wet_file[3:]) 
+                    print(wet_file_name)
                     
                 # Add WET file name to wet.paths.done list
                 with open(done_list_file, 'a', newline='') as f:
                     writer = csv.writer(f, delimiter='\t')
-                    writer.writerows([(wet_file[3:],)])
+                    writer.writerows([(wet_file_name,)])
 
 
-#%%
+# %%
 def do_cpu_bound(args):
     with multiprocessing.Pool() as pool:  # multiprocessing.Pool(processes=2)
         pool.starmap(clean_tokenize_frqdis_wet_files, args)
 
 
-#%%
+# %%
 if __name__ == '__main__':
     paths = glob.glob("../*.warc.wet*")
     args_list = []
@@ -631,7 +648,7 @@ if __name__ == '__main__':
     print('Duration {0} seconds'.format(duration))
 
 
-#%%
+# %%
 # if __name__ == '__main__':
 #     paths = glob.glob("../*.warc.wet*")
 #     count = 3 # paramater
@@ -648,19 +665,38 @@ if __name__ == '__main__':
 #     print('Duration {0} seconds'.format(duration))
 
 
-#%%
+# %%
+
+
+
+# %%
+
+
+
+# %%
+
+
+
+# %%
+
+
+
+# %%
 # import fasttext
 
 
-#%%
+# %%
 # x = fasttext.tokenize('tet I`m. Go with me Mr. John, how are you. you`d like it \ \ + f')
 
 
-#%%
+# %%
 # x
 
 
-#%%
+# %%
 # help(fasttext.FastText)
+
+
+# %%
 
 
